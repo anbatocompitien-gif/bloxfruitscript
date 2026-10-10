@@ -1,0 +1,342 @@
+-- ============================================================
+-- PATCH UPDATE: mkhuong v1.1
+-- Thêm: Auto Đánh Siêu Nhanh, Auto Nhặt Trái, Fix Tele Đảo
+-- ============================================================
+
+-- ============================================================
+-- FIX TELE ĐẢO: Sử dụng tọa độ thực tế từ Blox Fruit
+-- ============================================================
+local Islands_Data = {
+    ["Starter Island"] = CFrame.new(0, 5, 0),
+    ["Marine Fort"] = CFrame.new(-285, 5, 2645),
+    ["Middle Town"] = CFrame.new(-700, 5, 1500),
+    ["Jungle"] = CFrame.new(-1600, 5, 200),
+    ["Pirate Village"] = CFrame.new(-1200, 5, 3400),
+    ["Desert"] = CFrame.new(1000, 5, 2500),
+    ["Snow Island"] = CFrame.new(1200, 5, -1500),
+    ["Marine Ford"] = CFrame.new(-5000, 5, 3000),
+    ["Sky Island"] = CFrame.new(-5000, 1000, -5000),
+    ["Prison"] = CFrame.new(5000, 5, 5000),
+    ["Colosseum"] = CFrame.new(-1500, 5, -8000),
+    ["Fountain City"] = CFrame.new(5000, 5, -5000),
+    ["Cursed Ship"] = CFrame.new(1000, 5, 3500),
+    ["Ice Castle"] = CFrame.new(-6000, 5, -5000),
+    ["Forgotten Island"] = CFrame.new(-3000, 5, -4000),
+    ["Port Town"] = CFrame.new(-400, 5, -3000),
+    ["Hydra Island"] = CFrame.new(5000, 5, -3000),
+    ["Great Tree"] = CFrame.new(2000, 5, -2500),
+    ["Castle on the Sea"] = CFrame.new(-3000, 5, 5000),
+    ["Haunted Castle"] = CFrame.new(-9000, 5, -2000),
+    ["Sea of Treats"] = CFrame.new(-2000, 5, -9000),
+    ["Tiki Outpost"] = CFrame.new(500, 5, -12000),
+}
+
+-- Hàm tele chuẩn với CFrame và kiểm tra nhân vật
+local function TeleportTo(CFrameTarget)
+    local character = LocalPlayer.Character
+    if not character then return false end
+    
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return false end
+    
+    -- Dùng CFrame trực tiếp, tránh bị rubberband
+    rootPart.CFrame = CFrameTarget
+    
+    -- Chống rubberband bằng cách set velocity = 0
+    rootPart.Velocity = Vector3.new(0, 0, 0)
+    rootPart.RotVelocity = Vector3.new(0, 0, 0)
+    
+    return true
+end
+
+-- ============================================================
+-- AUTO ĐÁNH SIÊU NHANH (Fast Attack)
+-- ============================================================
+local fastAttackEnabled = false
+local fastAttackConnection = nil
+local fastAttackDelay = 0.01 -- Tốc độ đánh (giây)
+
+local function FastAttack()
+    if fastAttackConnection then
+        fastAttackConnection:Disconnect()
+        fastAttackConnection = nil
+    end
+    
+    if not fastAttackEnabled then return end
+    
+    fastAttackConnection = RunService.Heartbeat:Connect(function()
+        if not fastAttackEnabled then return end
+        
+        local character = LocalPlayer.Character
+        if not character then return end
+        
+        local tool = character:FindFirstChildOfClass("Tool")
+        if tool then
+            -- Kích hoạt tool liên tục để đánh siêu nhanh
+            tool:Activate()
+        end
+    end)
+end
+
+-- Tạo toggle với tốc độ có thể điều chỉnh
+local FastAttackFrame = Instance.new("Frame")
+FastAttackFrame.Name = "FastAttackFrame"
+FastAttackFrame.Parent = ScrollFrame
+FastAttackFrame.Size = UDim2.new(1, -10, 0, 40)
+FastAttackFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+FastAttackFrame.BorderSizePixel = 0
+
+local FastAttackCorner = Instance.new("UICorner")
+FastAttackCorner.CornerRadius = UDim.new(0, 6)
+FastAttackCorner.Parent = FastAttackFrame
+
+local FastAttackLabel = Instance.new("TextLabel")
+FastAttackLabel.Parent = FastAttackFrame
+FastAttackLabel.Size = UDim2.new(0.6, 0, 1, 0)
+FastAttackLabel.Position = UDim2.new(0, 10, 0, 0)
+FastAttackLabel.BackgroundTransparency = 1
+FastAttackLabel.Text = "Auto Đánh Siêu Nhanh"
+FastAttackLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+FastAttackLabel.Font = Enum.Font.Gotham
+FastAttackLabel.TextSize = 16
+FastAttackLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local FastAttackToggle = Instance.new("TextButton")
+FastAttackToggle.Parent = FastAttackFrame
+FastAttackToggle.Size = UDim2.new(0, 50, 0, 25)
+FastAttackToggle.Position = UDim2.new(1, -60, 0.5, -12)
+FastAttackToggle.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+FastAttackToggle.BorderSizePixel = 0
+FastAttackToggle.Text = "OFF"
+FastAttackToggle.TextColor3 = Color3.fromRGB(0, 0, 0)
+FastAttackToggle.Font = Enum.Font.GothamBold
+FastAttackToggle.TextSize = 14
+
+local FastAttackToggleCorner = Instance.new("UICorner")
+FastAttackToggleCorner.CornerRadius = UDim.new(0, 12)
+FastAttackToggleCorner.Parent = FastAttackToggle
+
+local fastAttackState = false
+FastAttackToggle.MouseButton1Click:Connect(function()
+    fastAttackState = not fastAttackState
+    fastAttackEnabled = fastAttackState
+    FastAttackToggle.BackgroundColor3 = fastAttackState and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(80, 80, 80)
+    FastAttackToggle.Text = fastAttackState and "ON" or "OFF"
+    FastAttack()
+end)
+
+-- ============================================================
+-- AUTO NHẶT TRÁI (Auto Collect Fruit)
+-- ============================================================
+local autoCollectFruitEnabled = false
+local autoCollectFruitConnection = nil
+
+local function AutoCollectFruit()
+    if autoCollectFruitConnection then
+        autoCollectFruitConnection:Disconnect()
+        autoCollectFruitConnection = nil
+    end
+    
+    if not autoCollectFruitEnabled then return end
+    
+    autoCollectFruitConnection = RunService.Heartbeat:Connect(function()
+        if not autoCollectFruitEnabled then return end
+        
+        local character = LocalPlayer.Character
+        if not character then return end
+        
+        local rootPart = character:FindFirstChild("HumanoidRootPart")
+        if not rootPart then return end
+        
+        -- Quét tất cả trái cây trong Workspace
+        for _, fruit in pairs(Workspace:GetChildren()) do
+            -- Kiểm tra tên có chứa "Fruit" hoặc "Devil Fruit"
+            if fruit.Name:find("Fruit") or fruit.Name:find("Devil") then
+                if fruit:FindFirstChild("Handle") then
+                    local fruitPos = fruit.Handle.Position
+                    local distance = (rootPart.Position - fruitPos).Magnitude
+                    
+                    -- Nếu trong phạm vi 500 studs thì tele đến nhặt
+                    if distance < 500 then
+                        rootPart.CFrame = CFrame.new(fruitPos + Vector3.new(0, 3, 0))
+                        wait(0.1)
+                    end
+                end
+            end
+        end
+    end)
+end
+
+-- Tạo toggle
+local CollectFruitFrame = Instance.new("Frame")
+CollectFruitFrame.Name = "CollectFruitFrame"
+CollectFruitFrame.Parent = ScrollFrame
+CollectFruitFrame.Size = UDim2.new(1, -10, 0, 40)
+CollectFruitFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+CollectFruitFrame.BorderSizePixel = 0
+
+local CollectFruitCorner = Instance.new("UICorner")
+CollectFruitCorner.CornerRadius = UDim.new(0, 6)
+CollectFruitCorner.Parent = CollectFruitFrame
+
+local CollectFruitLabel = Instance.new("TextLabel")
+CollectFruitLabel.Parent = CollectFruitFrame
+CollectFruitLabel.Size = UDim2.new(0.6, 0, 1, 0)
+CollectFruitLabel.Position = UDim2.new(0, 10, 0, 0)
+CollectFruitLabel.BackgroundTransparency = 1
+CollectFruitLabel.Text = "Auto Nhặt Trái"
+CollectFruitLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+CollectFruitLabel.Font = Enum.Font.Gotham
+CollectFruitLabel.TextSize = 16
+CollectFruitLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local CollectFruitToggle = Instance.new("TextButton")
+CollectFruitToggle.Parent = CollectFruitFrame
+CollectFruitToggle.Size = UDim2.new(0, 50, 0, 25)
+CollectFruitToggle.Position = UDim2.new(1, -60, 0.5, -12)
+CollectFruitToggle.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+CollectFruitToggle.BorderSizePixel = 0
+CollectFruitToggle.Text = "OFF"
+CollectFruitToggle.TextColor3 = Color3.fromRGB(0, 0, 0)
+CollectFruitToggle.Font = Enum.Font.GothamBold
+CollectFruitToggle.TextSize = 14
+
+local CollectFruitToggleCorner = Instance.new("UICorner")
+CollectFruitToggleCorner.CornerRadius = UDim.new(0, 12)
+CollectFruitToggleCorner.Parent = CollectFruitToggle
+
+local collectFruitState = false
+CollectFruitToggle.MouseButton1Click:Connect(function()
+    collectFruitState = not collectFruitState
+    autoCollectFruitEnabled = collectFruitState
+    CollectFruitToggle.BackgroundColor3 = collectFruitState and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(80, 80, 80)
+    CollectFruitToggle.Text = collectFruitState and "ON" or "OFF"
+    AutoCollectFruit()
+end)
+
+-- ============================================================
+-- FIX LỖI TELE ĐẢO: Thay thế nút cũ bằng nút mới
+-- ============================================================
+-- Xóa nút Teleport cũ nếu tồn tại
+for _, child in pairs(ScrollFrame:GetChildren()) do
+    if child:IsA("TextButton") and child.Text == "Teleport Đến Đảo" then
+        child:Destroy()
+    end
+end
+
+-- Tạo nút Teleport mới với dữ liệu chuẩn
+CreateButton("Teleport Đến Đảo (Fixed)", function()
+    local IslandGui = Instance.new("ScreenGui")
+    IslandGui.Name = "IslandGui_Fixed"
+    IslandGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    IslandGui.ResetOnSpawn = false
+    
+    local IslandFrame = Instance.new("Frame")
+    IslandFrame.Size = UDim2.new(0, 320, 0, 450)
+    IslandFrame.Position = UDim2.new(0.5, -160, 0.5, -225)
+    IslandFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    IslandFrame.BorderSizePixel = 0
+    IslandFrame.Parent = IslandGui
+    IslandFrame.Active = true
+    IslandFrame.Draggable = true
+    
+    local IslandCorner = Instance.new("UICorner")
+    IslandCorner.CornerRadius = UDim.new(0, 10)
+    IslandCorner.Parent = IslandFrame
+    
+    local IslandStroke = Instance.new("UIStroke")
+    IslandStroke.Color = Color3.fromRGB(0, 255, 0)
+    IslandStroke.Thickness = 2
+    IslandStroke.Parent = IslandFrame
+    
+    local IslandTitle = Instance.new("TextLabel")
+    IslandTitle.Size = UDim2.new(1, 0, 0, 40)
+    IslandTitle.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+    IslandTitle.Text = "Chọn Đảo (Fixed)"
+    IslandTitle.TextColor3 = Color3.fromRGB(0, 0, 0)
+    IslandTitle.Font = Enum.Font.GothamBold
+    IslandTitle.TextSize = 18
+    IslandTitle.Parent = IslandFrame
+    
+    local IslandTitleCorner = Instance.new("UICorner")
+    IslandTitleCorner.CornerRadius = UDim.new(0, 10)
+    IslandTitleCorner.Parent = IslandTitle
+    
+    local IslandScroll = Instance.new("ScrollingFrame")
+    IslandScroll.Size = UDim2.new(1, -20, 1, -55)
+    IslandScroll.Position = UDim2.new(0, 10, 0, 45)
+    IslandScroll.BackgroundTransparency = 1
+    IslandScroll.ScrollBarThickness = 6
+    IslandScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    IslandScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    IslandScroll.Parent = IslandFrame
+    
+    local IslandLayout = Instance.new("UIListLayout")
+    IslandLayout.Parent = IslandScroll
+    IslandLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    IslandLayout.Padding = UDim.new(0, 5)
+    
+    -- Sắp xếp đảo theo thứ tự
+    local sortedIslands = {}
+    for name, cf in pairs(Islands_Data) do
+        table.insert(sortedIslands, {name = name, cf = cf})
+    end
+    table.sort(sortedIslands, function(a, b) return a.name < b.name end)
+    
+    for _, island in ipairs(sortedIslands) do
+        local IslandButton = Instance.new("TextButton")
+        IslandButton.Size = UDim2.new(1, -10, 0, 35)
+        IslandButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        IslandButton.Text = island.name
+        IslandButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        IslandButton.Font = Enum.Font.Gotham
+        IslandButton.TextSize = 14
+        IslandButton.Parent = IslandScroll
+        
+        local IslandButtonCorner = Instance.new("UICorner")
+        IslandButtonCorner.CornerRadius = UDim.new(0, 6)
+        IslandButtonCorner.Parent = IslandButton
+        
+        IslandButton.MouseButton1Click:Connect(function()
+            local success = TeleportTo(island.cf)
+            if success then
+                StarterGui:SetCore("SendNotification", {
+                    Title = "Teleport",
+                    Text = "Đã đến " .. island.name,
+                    Duration = 2
+                })
+            end
+            IslandGui:Destroy()
+        end)
+    end
+    
+    local CloseIslandButton = Instance.new("TextButton")
+    CloseIslandButton.Size = UDim2.new(0, 30, 0, 30)
+    CloseIslandButton.Position = UDim2.new(1, -35, 0, 5)
+    CloseIslandButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    CloseIslandButton.Text = "X"
+    CloseIslandButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CloseIslandButton.Font = Enum.Font.GothamBold
+    CloseIslandButton.TextSize = 14
+    CloseIslandButton.Parent = IslandFrame
+    
+    local CloseIslandCorner = Instance.new("UICorner")
+    CloseIslandCorner.CornerRadius = UDim.new(0, 6)
+    CloseIslandCorner.Parent = CloseIslandButton
+    
+    CloseIslandButton.MouseButton1Click:Connect(function()
+        IslandGui:Destroy()
+    end)
+end)
+
+-- ============================================================
+-- THÔNG BÁO CẬP NHẬT
+-- ============================================================
+StarterGui:SetCore("SendNotification", {
+    Title = "mkhuong v1.1",
+    Text = "Đã thêm Auto Đánh Siêu Nhanh, Auto Nhặt Trái, Fix Tele Đảo!",
+    Duration = 5
+})
+
+print("mkhuong v1.1 patch loaded successfully!")
+print("Added: FastAttack, AutoCollectFruit, Fixed Teleport")
